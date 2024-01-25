@@ -13,3 +13,402 @@ Alpine uses a slurm scheduler to submit jobs and manage user resources. In this 
 ## Creating an account
 All members of Anschutz must create an account following the tutorial [here](https://curc.readthedocs.io/en/latest/access/rmacc.html). This includes for creating an [ACCESS-CI](https://access-ci.org/) account.
 
+
+
+## Logging in
+
+To log into alpine, follow [this link](https://ondemand-rmacc.rc.colorado.edu) make sure you select "ACCESS CI (XSESE)" as your identity provider. Then enter your credentials.
+
+This will take you to the welcome page for Alpine.
+
+![](images/alpine_welcome.png)
+
+There are a few things to notice
+
+1. The quick links will be incredibly useful to you.
+  * A link to the status of the alpine cluster. This will include information about any problems or outages.
+  * A link to the user guide for alpine. This is an amazing resource for you to use if you ever have a question or need help. I will link to this resource throughout this guide.
+  * A link to a helpful Q&A site
+  * The email that you can use if you have any questions
+2. A link at the top to access and download any files that you have stored on Alpine or the Petalibrary
+3. A link to view your active jobs
+4. A link to start running a new terminal session
+5. A link to use interactive apps that are already installed. These include vscode, jupyter notebooks, and rstudio sessions
+
+
+We will walk through most of these today.
+
+### Starting a terminal window
+
+To start with a terminal window, first click `Clusters` at the top of the page and select `>_Alpine Shell` from the drop down menu.
+
+![](images/alpine_shell.png)
+
+This will open a new window with a terminal
+
+![](images/alpine_terminal.png)
+
+This terminal will give you access to all of your files and will allow you to run any type of compute job that you want.
+
+**NOTE this page automatically logs into the head or login node, you will need to start an interactive job before doing any sort of computationally intensive tasks such as installing packages, running scripts, or copying files**
+
+Most clusters have a head or login node. This is a gateway for all users to access the cluster. The primary functions of the login node are user authentication, job submission, and managing access to the compute nodes. Users log into this node to submit and monitor their computational tasks.
+
+However, the head node is not designed for computationally intensive tasks. Its resources are limited and intended for administrative purposes and user interaction. Running resource-intensive computations on the head node can degrade its performance and impact the overall cluster efficiency.
+
+Instead, you need to submit your computationally intensive jobs to compute nodes designated for such tasks. These nodes typically have higher processing power and memory capacity, ensuring efficient execution of parallelized and demanding calculations.
+
+But don't worry, you can work interactively on the compute nodes to install packages and test pipelines, you just will need to start an interactive job first.
+
+### Starting an interactive session
+
+When starting an interactive job, you will request and acquire the necessary computing resources to perform your task. You, and you alone, will have access to these compute resources for as long as you requested.
+
+Starting an interactive job is relatively easy. You just need to run the following command in the terminal.
+
+```bash
+sinteractive --partition=amilan --time=04:00:00 --ntasks=1 --mem=10000
+```
+
+
+Here is a breakdown of the command
+
+* `sinteractive` - submit a job that is interactive, this will grant direct access to resources.
+* `--partition=amilan` - This is the partition to submit to. `amilan` will almost always be the correct choice for partitions, but you can see other options [here](https://curc.readthedocs.io/en/latest/running-jobs/job-resources.html#partitions).
+* `--time=04:00:00` - How long do you want to have access to these resources? This example shows 4 hours. Pick a number that you think is reasonable, for example, I doubt you will be working 24 hours each day, so setting `--time=24:00:00` is unnecessary and wastes resources.
+* `--ntasks=1` - How many nodes do you want to use? Generally for interactive sessions, 1 is enough.
+* `--mem=10000` - How much memory do you need? This example shows 10GB. Again, try to pick a number that is enough for your needs, but not excessive. 4000 or 10000 tend to be good options for interactive sessions.
+
+For more information on interactive jobs, see the [help pages](https://curc.readthedocs.io/en/latest/running-jobs/interactive-jobs.html)
+
+**I sugesst running the above command every time you log onto the server using the approach described above**
+
+### Making aliases
+The command to initiate an interactive session on the cluster can be lengthy and challenging to remember. Luckily, there's a more convenient solution – you can streamline the process by adding an alias to your `bashrc` file.
+
+*What is a bashrc?*
+
+The `bashrc` is a crucial file executed each time you start a new session on the cluster. Whether logging into the head node or submitting a job, this file plays a key role in configuring your environment. It allows you to pre-load packages, define shortcuts, and manage the visibility of items in your path.
+
+We will be working with the `bashrc` file thorughout this tutorial. Let's start by opening the file using the editor `vim`
+
+```bash
+vim ~/.bashrc
+```
+
+Note, the above command can be executed from any location within alpine (ie from any directory), this is because the file is always located in your home directory and the `~` is a shortcut for the home directory.
+
+Additionally, the `bashrc` is a hidden file. This means that if you look at your home directory in a directory or use `ls` to view the contents of the directory, you won't see it. All hidden files start with a `.`. You might have noticed these files when you copy contents of a directory to one drive (for example `.DS_Store` shows up frequently).
+
+
+Once you open the file, you will likely see there is already some text there. To get into editing mode, type `i`.
+
+Then navigate under
+
+```
+# User specific aliases and functions
+```
+
+and add
+
+```
+# Alias
+alias interactive="sinteractive --partition=amilan --time=04:00:00 --ntasks=1 --mem=10000"
+```
+
+Here you are saying that you want an alias named `interactive`. This means that typing `interactive` in the future will be interpreted as the full command.
+
+Remember, you can update this command to be the amount of time and memory that you would want most often.
+
+Now exit out of `vim` and save your work
+
+`Esc` + `:wq` + `Enter`
+
+
+To apply your changes immediately, run:
+
+```bash
+source ~/.bashrc
+```
+
+This is only necessary right now as from now on, any time you start a new session, this file will be sourced automatically.
+
+To test that it worked type
+
+```bash
+interactive
+```
+
+### Logging on with vs code
+
+An alternative to logging in through a terminal is to use `VS Code`. VS code stands for Visual Studio Code and is an editor with many features.
+
+To log in with vs code, go back to the [main dashboard](https://ondemand-rmacc.rc.colorado.edu/pun/sys/dashboard) in your favorite web browser and select `Interactive Apps` and choose `VS Code-Server (Presets)` from the drop down menu.
+
+![](images/alpine_vscode.png)
+
+Once you reach the VS Code page, select the number of cores and the length of time that you want and select launch
+
+![](images/alpine_vscode_launch.png)
+
+After hitting `launch`, you may need to wait a few seconds to a few minutes for your job to start. When your job is ready, `Connect to VS Code` will appear. Clicking this will take you into your VS Code session.
+
+![](images/alpine_vscode_connect.png)
+
+Once you connect, a blank page will open. You can start a terminal directly within VS Code by clicking the lines in the top left, and selecting `terminal` --> `new_terminal`
+
+![](images/alpine_vscode_terminal.png)
+
+
+**Note starting a terminal in this way will open a terminal already on a compute node, you don't need to start an interactive session.**
+
+You can tell what node you are on by looking at the brackets before your cursor. If you see
+
+```
+kwellswrasman@xsede.org@login-ci1
+```
+
+You are on a login node - notice the `login-ci1` after the @ symbol.
+
+If you see
+
+```
+kwellswrasman@xsede.org@c3cpu-c15-u34-2
+```
+
+You are on a compute node. The node you are on won't always be the same but if you see `cpu` or `gpu`, you know that you are on a compute node rather than a login node.
+
+Another huge benefit of VS Code is that you can edit files in an interactive editor and save the file directly to the server without using `vim`. 
+
+Let's try this with the alias and open our `~.bashrc`
+
+First open a file with `File` --> `Open File`
+
+![](images/alpine_vscode_file.png)
+
+
+Then type
+
+`~/.bashrc` into the box that shows up at the top. You can type any full path into this box to see what youare doing. Once you have put in the path, click the file, and click open if a box appears
+
+![](images/alpine_vscode_bashrc.png)
+
+You can now edit this file as you would in any editior you've used before. When you save with `cmd` + `s`, the file will be correctly updated on the server without any more work from you.
+
+## Navagating in linux
+
+The Alpine Server is on a linux based system, so you will need to use specific tools to navigate
+
+* `ls` - list all files in a directory
+* `ls -ahl` - list all files and their information, including hidden files. Make the sizes human readable
+* `cd` - Change directory. If `cd` is typed alone, you will move to your home directory `~`, or you can include it with a path `cd my/new/direcotry`
+* `mkdir` - Make a new directory. Use `mkdir new_name`, new_name will be the name of the new directory
+* `rmdir` - Remove a directory. Use `rmdir dir_name` will remove dir_name. Note, the directory must be empty. If you want to remove a directory with files in it, you will need to use `rm -r dir_name`
+* `mv` - Move a folder or directory. Use `mv original_follder new/path/for/folder/`
+* `pwd` - Print working directory, displays path of the current directory
+* `cp` - Copies files or directories. Use `cp original_dir new/dir/path/new_dir`
+* `rm` - Remove files or directories. These will be permantly removed so use with caution.
+* `touch` - Create an empty file. Use `touch new_file.txt`
+* `cat` - Concatenate files `cat file1.txt file2.txt > new_file.txt`
+* `man` - Show manual for a command. Use `man ls`
+* `grep` - Search text for a pattern. Use `grep pattern file_name.txt`
+
+## Transferring files
+
+If you don't have ssh access set up, you will need to transfer files using [globus](https://curc.readthedocs.io/en/latest/compute/data-transfer.html#globus-transfers)
+
+Follow the instructions linked above to set up a globus account. Once the account is set up, visit [this site](https://app.globus.org/) and select ACCESS from the dropdown menu. Login with your ACCESS credentials.
+
+The tutorial above explains how to install globus on your personal computer and then how to use globus to transfer files.
+
+I find this to be quite clunky and tedious, so if you do lots of transferring, I recommend sending an email and requesing ssh acces.
+
+
+## Modules
+Many packages and tools you will need to use have already been installed on alpine and you can access them through [modules](https://curc.readthedocs.io/en/latest/compute/modules.html). 
+
+To view what packages are available, use
+
+```bash
+module avail
+```
+
+The available packages will appear on your screen. Hit "Enter" to scroll through them.
+
+To use a specific package use
+
+```bash
+module load package_name/version
+```
+
+If you don't specify the version, the default version (indicated at (D)) will be selected.
+
+Once you run `module load package_name`, the package will be added to your path and you will have direct access to the package until you finish your session or you run `module unload package_name`.
+
+You only load the package into your specified session, so if you want to use it tomorrow or in a script, you need to rerun `module load package_name` or add `module load package_name` to your script.
+
+If there is a package that you want permanantly loaded, you can add `module load package_name` to your `.bashrc`.
+
+## Conda
+
+While many modules are available, sometimes you want packages that aren't installed or different versions of packages than what is available. One problem with servers is that you don't have root access, so installing many packages become difficult.
+
+A great way to get around this is to use `Conda` as your package manager. `Conda` is great for many reasons
+
+* Most packages you want are available from `Conda`
+* You don't need root access to install `Conda` or any `Conda` packages
+* You can have many different envioronments so you can have different versions of the same package installed on your computer at the same time. For example, you can have `python2` and `python3` or `R/4.2` and `R/4.4`
+
+
+### Initial Set up
+
+To start conda
+
+```bash
+module load anaconda
+conda init
+```
+
+By default conda will install in the home directory, but there is not enough room. Instead it needs to install into projects.
+
+```bash
+vim ~/.condarc
+```
+
+And add
+
+```
+pkgs_dirs:
+  - /projects/$USER/.conda_pkgs
+envs_dirs:
+  - /projects/$USER/software/anaconda/envs
+```
+
+Now when you create a new environment, it will point to the correct location
+
+Information for chainging the base directory of installing packages with conda is [here](https://curc.readthedocs.io/en/latest/software/python.html)
+
+### Usage
+
+Conda has great [user guides](https://conda.io/projects/conda/en/latest/user-guide/index.html) that you can reference for help.
+
+Once you have conda installed, you can start installing packages.
+
+First, let's create a new environment
+
+```bash
+conda create -n test_env
+```
+
+Once the environment is created, you can activate it
+
+```bash
+conda activate test_env
+```
+
+To install packages, you can search for a package [here](https://anaconda.org/). This will then give you instructions for how to use conda to install that package.
+
+
+We can test this out with [star](https://anaconda.org/bioconda/star)
+
+```bash
+conda install bioconda::star
+```
+
+Type yes when prompted.
+
+Notice now when you look for star, it is in your anaconda folder
+
+```bash
+which which STAR
+```
+
+```
+/projects/kwellswrasman@xsede.org/software/anaconda/envs/test_env/bin/STAR
+```
+
+```bash
+STAR --version
+```
+
+```
+2.5.2b
+```
+
+
+What if you wanted to install the newest version of star (2.7.11)?
+
+```bash
+conda install bioconda::star=2.7.11
+```
+
+```
+Collecting package metadata (current_repodata.json): done
+Solving environment: failed with initial frozen solve. Retrying with flexible solve.
+Solving environment: failed with repodata from current_repodata.json, will retry with next repodata source.
+Collecting package metadata (repodata.json): done
+Solving environment: failed with initial frozen solve. Retrying with flexible solve.
+Solving environment: - 
+Found conflicts! Looking for incompatible packages.
+This can take several minutes.  Press CTRL-C to abort.
+failed
+
+ResolvePackageNotFound: 
+  - libstdcxx-ng[version='>=12']
+```
+
+Here, we get an error because it can't find a specific package. We can search for this package in anaconda and we find that it is in the conda-forge channel [more info here](https://anaconda.org/conda-forge/libstdcxx-ng)
+
+```bash
+conda install bioconda::star=2.7.11 -c conda-forge
+which STAR
+```
+
+```
+/projects/kwellswrasman@xsede.org/software/anaconda/envs/test_env/bin/STAR
+```
+
+```bash
+STAR --version
+```
+
+```
+2.7.11a
+```
+
+If we deactivate the envrionment, we won't be able to find star anymore
+
+```bash
+conda deactivate
+which STAR
+```
+
+```
+/usr/bin/which: no STAR in (/home/kwellswrasman@xsede.org/peta_active/bin:/opt/TurboVNC/bin:/usr/lpp/mmfs/bin:/curc/sw/install/vscode/4.16.1/code-server-4.16.1-linux-amd64/lib/vscode/bin/remote-cli:/home/kwellswrasman@xsede.org/peta_active/bin:/opt/TurboVNC/bin:/usr/lpp/mmfs/bin:/curc/sw/git/2.31.0/bin:/home/kwellswrasman@xsede.org/peta_active/bin:/opt/TurboVNC/bin:/usr/lpp/mmfs/bin:/curc/sw/anaconda3/2022.10/bin:/curc/sw/anaconda3/2022.10/condabin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/curc/sw/install/vscode/4.16.1/code-server-4.16.1-linux-amd64/bin)
+```
+
+This is also different than the star we see through the modules
+
+```bash
+module load star
+which STAR
+```
+
+```
+/curc/sw/install/bio/star/2.7.10b/bin/Linux_x86_64_static/STAR
+```
+
+```bash
+STAR --version
+```
+
+```
+2.7.10b
+```
+
+
+### Errors
+Sometimes you get errors when installing packages with conda.
+
+* It will always try to keep dependencies satisfied, this means sometimes the default won't install the version of the package that you want.
+* Sometimes it won't be able to install the package you want because of dependency issues. You sometimes just need to add a different channel, but other times you may need to manually install or uninstall some packages. An example of this is above.
