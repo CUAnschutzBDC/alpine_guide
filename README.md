@@ -412,3 +412,167 @@ Sometimes you get errors when installing packages with conda.
 
 * It will always try to keep dependencies satisfied, this means sometimes the default won't install the version of the package that you want.
 * Sometimes it won't be able to install the package you want because of dependency issues. You sometimes just need to add a different channel, but other times you may need to manually install or uninstall some packages. An example of this is above.
+
+## Submitting jobs
+
+Imagine having the power to submit multiple computing tasks, walk away, and return to find them completed. Welcome to the world of job submission using a Slurm scheduler!
+
+### Introduction to SLURM
+
+Alpine uses a slurm scheduler. A scheduler makes sure everyone has equal access to compute resources and also tries to find the most efficient way to run jobs. This means that when a new job is submitted to the cluster, the scheduler will take into account the resources requested - the number of cores, amount of memory, and length of time. If there is a spot with this amount of resources open, and no one in line, your job will immediately be submitted. If, however, there aren't enough available resources to run your job, your job will be placed in a queue until the resources open up. This means that smaller jobs are more likely to run quickly than larger jobs because it is more likely that the resources are already available. Additionally, there might already be other jobs sitting in the queue. Based on your priority and your resources requested, your job will sit in the queue until resources open up.
+
+*How does the queue and scheduling work?*
+The scheduler wants to ensure that jobs are run in the most efficient and fair way. This means that when there is a queue and some amount of compute resources open up, the scheduler will check queued jobs to see if any jobs will fit into the open slot. This means that your job will submit more quickly if you are asking for fewer resources. Let's say that someone sitting in the queue asked for 500GB of memory and you only asked for 10GB and 30 minutes. If 20GB of space opens up, your job will likely start running before the large job because your job will finish before the other 480GB of memory open up.
+
+*What is priority?*
+Priority is determined by how much you use the cluster. If you have only run a handful of jobs on the cluster, your priority will be much lower than if you have run thousands of jobs. Your priority is based on the amount of compute time that you have used. 
+
+To check your priority, you can run
+
+```bash
+module load slurmtools # This only needs to be run once per session
+levelfs $USER
+```
+
+```
+LevelFS for user kwellswrasman@xsede.org and institution amc:
+
+Account             LevelFS_User        LevelFS_Inst        
+-----------------------------------------------------
+amc-general         2.553437            0.696854  
+```
+
+In the command above, I used the variable `$USER` instead of typing out my full username. We also loaded the slurmtools module.
+
+This will tell you your priority in respect to 1. Anything lower than 1 means you have a lower priority than the average user, anything higher than 1 means you have higher priority than the average user. In the output above, you can see that I have higher priority than the average user but Anshutz has lower priority than other institutions.
+
+*Is there any way to improve queue times?*
+Hopefully queue times are never very long. Based on the amount of usage, sometimes the queue times can get longer. If this ever happens, trying to break up your job into smaller pieces will likely get each job through more quickly as you can take the small slivers of compute resources that become available rather than waiting for a large block of resources to open up.
+
+*How can I tell how busy the cluster is?*
+To see the number of jobs that are currently queued or running
+
+```bash
+squeue | wc -l
+```
+
+```
+597
+```
+
+Here only 600 jobs are running or queued so I would expect queue times to be short. In my experience with the resources available in March 2024, queue times get longer when there are over 1500 jobs submitted or queued.
+
+To see how many of these jobs are running
+
+```bash
+squeue | grep "R" | wc -l
+```
+
+```
+347
+```
+
+To see the number of pending jobs
+
+```bash
+squeue | grep "PD" | wc -l
+```
+
+```
+283
+```
+
+Some of these jobs might be pending for other reasons - like the user has already requested the maximum number of jobs. To see jobs that are pending because of priority
+
+```bash
+squeue | grep "Priority" | wc -l
+```
+
+```
+197
+```
+
+To summarize
+* We are able to submit our jobs to the system and not need to constantly monitor them.
+* Schedulers ensure that the maximum number of resources are used in the most efficient way possible that is also the most fair to all users.
+* How long your job queues depends on the number of resources you ask for and your priority
+* Breaking up a large job into smaller jobs can help your queue time if the cluster is busy.
+
+### Submission scripts
+
+Alpine already has a great introduction to [submitting jobs](https://curc.readthedocs.io/en/latest/running-jobs/batch-jobs.html) This will follow the linked guide.
+
+To submit jobs to the scheduler, you need to write a bash script. Bash scripts include several pieces
+1. Directives that are used to request the resources your job needs
+2. Your commands - these are the exact commands you would enter into the terminal
+
+A basic script looks like this
+
+```bash
+#!/bin/bash 
+
+#SBATCH --job-name=test_job
+#SBATCH --ntasks=1
+#SBATCH --time=1:00:00
+#SBATCH --mem=1gb
+#SBATCH --output=logs/test_%J.out
+#SBATCH --partition=amilan
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=kristen.wells-wrasman@cuanschutz.edu
+
+mkdir -p logs
+
+echo "This is the first step"
+sleep 60
+echo "Finished"
+```
+
+#### Directives
+The directives tell the scheduler information about the resources needed to run the job. The first line of the directive is the shebang `#!`. This indicates in what shell you will be running your job. You will almost always wan this to be bash
+
+```bash
+#!/bin/bash
+```
+
+The next directives are the sbatch directives and give information about the resource requirements. The possible flags [are listed here](https://curc.readthedocs.io/en/latest/running-jobs/batch-jobs.html#job-flags)
+
+Some imporant ones to note
+`partition` - This will almost always be `amilan` unless you require extra time or memory, or GPUs rather than CPUs. The partitions are [outlined here](https://curc.readthedocs.io/en/latest/running-jobs/job-resources.html#partitions)
+`mem` - The amount of memory your job requires 
+`time` - The amount of time you want for your job. I tend to overestimate this because once your job hits the time limit it will be killed regardless of if it finished
+`mail-type` and `mail-user` - Should emails be sent when the job starts and completes? Especially if queue times are slow this is particularily helpful if queue times are slow. You can submit a job and get an email when it starts, ends, or fails rather than constantly needing to check on that status of your job
+`job-name` - The name of your job so you can easily tell what each of your jobs is doing.
+
+*How do I decide what resources to provide?*
+I generally start high for resources I request. This way the job won't be killed after running for a long time. Once the job has completed, you can check the efficiency of the job.
+
+```bash
+seff 5356672
+```
+
+```
+Job ID: 5356672
+Cluster: alpine
+User/Group: kwellswrasman@xsede.org/kwellswrasmanpgrp@xsede.org
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 14
+CPU Utilized: 00:02:02
+CPU Efficiency: 5.81% of 00:35:00 core-walltime
+Job Wall-clock time: 00:02:30
+Memory Utilized: 6.12 GB
+Memory Efficiency: 12.52% of 48.83 GB
+```
+
+This tells you that the job successfully completed, it ran for 2.5 minutes and used 6 GB of the provided 50GB. You could use this information to lower both the time and the amount of memory for the next run. 
+
+#### Commands
+
+These are any commands that you would run in the terminal. Be sure to load any modules you need here. Generally, if you are following tutorials for tools you run in the terminal, any of those commands will go here.
+
+### Monitoring jobs
+
+
+### Example analysis
+
+Now that we know the basics of submitting jobs, we can now do our own analysis
