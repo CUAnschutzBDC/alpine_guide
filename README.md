@@ -570,9 +570,283 @@ This tells you that the job successfully completed, it ran for 2.5 minutes and u
 
 These are any commands that you would run in the terminal. Be sure to load any modules you need here. Generally, if you are following tutorials for tools you run in the terminal, any of those commands will go here.
 
-### Monitoring jobs
 
+Once you have written this script, save it someplace that makes sense with a `.sh` suffix.
+
+### Submitting jobs
+Submiting jobs is easy. Once you have written and saved your script, you submit with
+
+```bash
+sbatch test_job.sh
+```
+
+### Monitoring jobs
+Once the Job is submitted, you can check to see if the job is running
+
+```bash
+squeue --user $USER
+```
+
+```
+             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+           5402423    amilan test_job kwellswr  R       0:09      1 c3cpu-c15-u1-1
+```
+
+This tells you information about your jobs. All jobs that you have running or queued will be shown here. This tells you the status, how many nodes were requested, how long it's been running or pending, and the cpu being used or the reason the job isn't running. If your job is in the queue, it will look like
+
+
+```
+             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+           5402423    amilan test_job kwellswr  PD       0:09      1 (Priority)
+```
 
 ### Example analysis
 
-Now that we know the basics of submitting jobs, we can now do our own analysis
+Now that we know the basics of submitting jobs, we can now do our own analysis. Below are some example scripts for running an RNA-seq analysis. The job scripts below are also located in the [scripts_folder](https://github.com/CUAnschutzBDC/alpine_guide/tree/main/src/scripts). If you want to run the analysis, download the scripts to your own location and change the email user and path to the fastq files.
+
+One quick note, to make it so we can actually run the below jobs in a reasonable time, I have made a very small fastq file. You will definitely need more time and memory when running on your own data. I recommend starting high and then finding a reasonable time and memory limit using `seff`. I will put good starting points in the descriptions for each.
+
+
+#### Fastqc
+Recommended starting point - time = 6 hours, memory = 16GB
+
+```bash
+#!/bin/bash 
+
+#SBATCH --job-name=fastqc
+#SBATCH --ntasks=1
+#SBATCH --time=00:10:00
+#SBATCH --mem=1gb
+#SBATCH --output=logs/fastqc_%J.out
+#SBATCH --partition=amilan
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=kristen.wells-wrasman@cuanschutz.edu
+
+mkdir -p logs
+
+# Load in modules
+module load fastqc
+
+# Update with the path to your fastq files
+fastq_dir="/pl/active/Anschutz_BDC/resources/tutorials/alpine_guide/data"
+fastq1="${fastq_dir}/sample1_S26_L001_R1_001.fastq.gz"
+fastq2="${fastq_dir}/sample1_S26_L001_R2_001.fastq.gz"
+outdir="fastqc"
+mkdir -p $outdir
+
+fastqc $fastq1 $fastq2 --outdir $outdir
+
+```
+
+To submit, navigate to the directory containing the script and run
+
+```bash
+sbatch 01_fastqc.sh
+```
+
+#### Cutadapt
+Recommended starting point - time = 6 hours, memory = 4GB
+
+```bash
+#!/bin/bash 
+
+#SBATCH --job-name=cutadapt
+#SBATCH --ntasks=1
+#SBATCH --time=00:10:00
+#SBATCH --mem=1gb
+#SBATCH --output=logs/cutadapt_%J.out
+#SBATCH --partition=amilan
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=kristen.wells-wrasman@cuanschutz.edu
+
+mkdir -p logs
+
+# Load in modules
+module load cutadapt
+
+# Update with the path to your fastq files
+fastq_dir="/pl/active/Anschutz_BDC/resources/tutorials/alpine_guide/data"
+fastq1="${fastq_dir}/sample1_S26_L001_R1_001.fastq.gz"
+fastq2="${fastq_dir}/sample1_S26_L001_R2_001.fastq.gz"
+
+cutadapt_dir="cutadapt"
+trim_fastq1="${cutadapt_dir}/sample1_S26_L001_R1_001.fastq.gz"
+trim_fastq2="${cutadapt_dir}/sample1_S26_L001_R2_001.fastq.gz"
+
+mkdir -p $cutadapt_dir
+
+cutadapt -m 20 \
+    -a 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCA' \
+    -A 'AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT'  \
+    -o $trim_fastq1 -p $trim_fastq2 \
+    $fastq1 $fastq2
+
+```
+
+To submit, navigate to the directory containing the script and run
+
+```bash
+sbatch 02_cutadapt.sh
+```
+
+#### STAR
+Recommended starting point 60GB, 12 hours, 6 threads. Change the `runThreadN` to 6 and `#SBATCH --ntasks=6`. The amount of memory and time will vary significantly based on your sample and genome. A larger fastq file will likely require more memory, but if you have lots of short reads that are hard to map this will also take more memory even if it is a shorter file. Even a small file will require a lot of memeory if the genome is large.
+
+Make sure that you have the correct genome as well. This needs to be a genome built with star. I will try to keep updated genomes in the `/pl/active/Anschutz_BDC/resources/ref/indicies/star` directory, but I may not have the genome you need. If that is true, we can work to build an index.
+
+```bash
+#!/bin/bash 
+
+#SBATCH --job-name=star
+#SBATCH --ntasks=1
+#SBATCH --time=00:10:00
+#SBATCH --mem=50gb
+#SBATCH --output=logs/star_%J.out
+#SBATCH --partition=amilan
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=kristen.wells-wrasman@cuanschutz.edu
+
+mkdir -p logs
+
+# Load in modules
+module load star/2.7.10b
+module load samtools
+
+# Update with the path to your fastq files
+cutadapt_dir="cutadapt"
+trim_fastq1="${cutadapt_dir}/sample1_S26_L001_R1_001.fastq.gz"
+trim_fastq2="${cutadapt_dir}/sample1_S26_L001_R2_001.fastq.gz"
+genome="/pl/active/Anschutz_BDC/resources/ref/indices/star/mouse/GRCm38"
+gtf_file="/pl/active/Anschutz_BDC/resources/ref/annotation/mouse/GRCm38/gtf/Mus_musculus.GRCm38.96.gtf"
+star_dir="star"
+mkdir -p $star_dir
+
+STAR \
+    --runThreadN 1 \
+    --genomeDir $genome \
+    --sjdbGTFfile $gtf_file \
+    --readFilesIn $trim_fastq1 $trim_fastq2 \
+    --readFilesCommand zcat \
+    --outSAMtype BAM Unsorted \
+    --outFileNamePrefix $star_dir/
+
+samtools sort ${star_dir}/Aligned.out.bam -T /scratch/alpine/$USER > ${star_dir}/Aligned.sorted.out.bam
+rm ${star_dir}/Aligned.out.bam
+samtools index ${star_dir}/Aligned.sorted.out.bam
+
+```
+
+To submit, navigate to the directory containing the script and run
+
+```bash
+sbatch 03_star.sh
+```
+
+#### Feature counts
+
+Recommended starting point 8GB, 1 hour.
+
+**IMPORTANT: Make sure you have the appropriate strandedness.** If you don't have the correct strandedness argument, you may be counting all of the junk reads rather than the real reads. Fortunately, it is easy to determine strandedness even if you don't know the library that was used. You can check strandedness by runing `inter_experiment.py`. This requires a bed file that can be made from a gtf file. I already have several of these made under `/pl/active/Anschutz_BDC/resources/ref/annotation`. For example, the bed file matching the genome we used here is `/pl/active/Anschutz_BDC/resources/ref/annotation/mouse/GRCm38/bed/Mus_musculus.GRCm38.96.bed`
+
+Make a conda environment
+
+```bash
+conda create -n infer_experiment
+conda activate infer_experiment
+conda install conda-forge::mamba
+mamba install bioconda::bedops
+mamba install bioconda::subread
+pip3 install RSeQC
+```
+
+##### Check strandedness
+
+If you need to make a bed file (the genome you are using doesn't already have a bed file made), follow the steps below. Replace the path to the gtf file with the gtf file you are using and the path to the bed file with the bed file you wan to make.
+
+```bash
+awk '{ if ($0 ~ "transcript_id") print $0; else print $0" transcript_id \"\";"; }' ../gtf/Mus_musculus.GRCm38.96.gtf | awk '$3 == "gene"' | gtf2bed > Mus_musculus.GRCm38.96.bed
+```
+
+Now check strandedness
+```bash
+infer_experiment.py -r /pl/active/Anschutz_BDC/resources/ref/annotation/mouse/GRCm38/bed/Mus_musculus.GRCm38.96.bed -i star/Aligned.sorted.out.bam
+```
+
+```
+
+Reading reference gene model /pl/active/Anschutz_BDC/resources/ref/annotation/mouse/GRCm38/bed/Mus_musculus.GRCm38.96.bed ... Done
+Loading SAM/BAM file ...  Finished
+Total 978 usable reads were sampled
+
+
+This is PairEnd Data
+Fraction of reads failed to determine: 0.2025
+Fraction of reads explained by "1++,1--,2+-,2-+": 0.0327
+Fraction of reads explained by "1+-,1-+,2++,2--": 0.7648
+```
+
+The top 1++, 1--, 2+-, 2-+ means that R1 mapped to the forward strand (1 + goes to +)
+The bottom 1+-, 1-+, 2++, 2-- means that R1 mapped to the reverse strand (1 + goes to -)
+
+This result is reverse stranded and would use the `-s 2` option with `featureCounts` (more info [here](https://rnabio.org/module-09-appendix/0009/12/01/StrandSettings/) and [here](https://salmon.readthedocs.io/en/latest/library_type.html)). If more reads were expalined by "1++,1--,2+-,2-+", you would set `-s 1` and if the two were close to equal, you would set `-s 0`
+
+##### Run feature counts
+
+```bash
+#!/bin/bash 
+
+#SBATCH --job-name=featureCounts
+#SBATCH --ntasks=1
+#SBATCH --time=00:10:00
+#SBATCH --mem=1gb
+#SBATCH --output=logs/featureCounts%J.out
+#SBATCH --partition=amilan
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=kristen.wells-wrasman@cuanschutz.edu
+
+mkdir -p logs
+
+# Activate conda environment
+conda activate infer_experiment
+
+# Update with the path to your fastq files
+gtf_file="/pl/active/Anschutz_BDC/resources/ref/annotation/mouse/GRCm38/gtf/Mus_musculus.GRCm38.96.gtf"
+star_dir="star"
+featureCount_dir="featureCounts"
+mkdir -p $featureCount_dir
+
+featureCounts \
+    --extraAttributes 'gene_name,gene_biotype' \
+    -s 2 -p -B \
+    -a ${gtf_file} \
+    -o ${featureCount_dir}/s1_countsOutput \
+    ${star_dir}/Aligned.sorted.out.bam
+
+```
+
+To submit, navigate to the directory containing the script and run
+
+```bash
+sbatch 04_feature_counts.sh
+```
+
+#### Count table
+Finally we need to make a count table. I have written a simple script that will take the featureCount output and make a count table.
+
+Recommended starting point 1GB, 10 minutes. This is pretty simple and quick and won't need many resources. Note, if you want to run this to combine multiple samples, just include those other paths under `-f featureCounts/file1_countsOutput,featureCounts/file2_countsOutput,featureCounts/file3_countsOutput`. This script does assume that you use this nameing scheme, ie all output of featureCounts is in a directory called `featureCounts` and all files have `sample_name_countsOutput`. 
+
+```bash
+#!/bin/bash 
+
+#SBATCH --job-name=featureCounts
+#SBATCH --ntasks=1
+#SBATCH --time=00:10:00
+#SBATCH --mem=1gb
+#SBATCH --output=logs/featureCounts%J.out
+#SBATCH --partition=amilan
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=kristen.wells-wrasman@cuanschutz.edu
+
+python countTable.py \
+    -f featureCounts/s1_countsOutput
+```
